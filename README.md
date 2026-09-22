@@ -14,7 +14,7 @@ The repository implements a secure-by-default Proof of Concept and MVP:
 - structured Application Insights logging;
 - Pester tests with all Graph operations mocked.
 
-Version: **0.1.0**
+Version: **0.1.1**
 
 ## Architecture review
 
