@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pester
+        shell: pwsh
+        run: Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force
+
+      - name: Run unit tests
+        shell: pwsh
+        run: ./scripts/Invoke-Tests.ps1
+
+      - name: Parse PowerShell
+        shell: pwsh
+        run: |
+          $errors = @()
+          Get-ChildItem -Recurse -Include *.ps1,*.psm1 | ForEach-Object {
+            $fileErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName,
+              [ref]$null,
+              [ref]$fileErrors
+            )
+            $errors += $fileErrors
+          }
+          if ($errors.Count -gt 0) {
+            $errors | Format-List
+            throw 'PowerShell parser errors were found.'
+          }
+
+      - name: Build Bicep
+        run: az bicep build --file infra/main.bicep

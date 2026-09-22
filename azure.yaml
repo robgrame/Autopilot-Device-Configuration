@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: autopilot-device-configuration
+metadata:
+  template: functions-quickstart-powershell-azd-timer@1.0.0
+services:
+  worker:
+    project: ./src/
+    # AZD has no dedicated PowerShell packager. The generic JavaScript ZIP
+    # packager works for PowerShell; Bicep sets the actual worker runtime.
+    language: js
+    remoteBuild: false
+    host: function

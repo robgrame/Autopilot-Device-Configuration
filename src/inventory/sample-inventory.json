@@ -1,0 +1,32 @@
+[
+  {
+    "SerialNumber": "SERIAL001",
+    "DeviceName": "IT-LT-00123",
+    "GroupTag": "NATIVE-IT-LAPTOP",
+    "EligibleForAutomation": true,
+    "Country": "IT",
+    "DeviceType": "Laptop",
+    "ProvisioningMethod": "Autopilot",
+    "LifecycleState": "Pilot",
+    "JoinType": "MicrosoftEntraJoined",
+    "Legacy": false,
+    "Excluded": false,
+    "ConflictingProvisioningInfo": false,
+    "InventorySource": "Fictitious MVP sample"
+  },
+  {
+    "SerialNumber": "SERIAL002",
+    "DeviceName": "DE-LT-00456",
+    "GroupTag": "NATIVE-DE-LAPTOP",
+    "EligibleForAutomation": false,
+    "Country": "DE",
+    "DeviceType": "Laptop",
+    "ProvisioningMethod": "Autopilot",
+    "LifecycleState": "Ready",
+    "JoinType": "MicrosoftEntraJoined",
+    "Legacy": false,
+    "Excluded": true,
+    "ConflictingProvisioningInfo": false,
+    "InventorySource": "Fictitious MVP sample"
+  }
+]

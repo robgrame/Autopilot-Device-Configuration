@@ -1,0 +1,19 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "powershell",
+    "TIMER_SCHEDULE": "0 0 */6 * * *",
+    "DRY_RUN": "true",
+    "INVENTORY_PROVIDER": "package-json",
+    "INVENTORY_PATH": "inventory/sample-inventory.json",
+    "DEVICE_NAME_VALIDATION_PATTERN": "^[A-Za-z][A-Za-z0-9-]{0,14}$",
+    "GROUP_TAG_VALIDATION_PATTERN": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+    "PILOT_SERIAL_NUMBERS": "SERIAL001",
+    "GRAPH_API_VERSION": "v1.0",
+    "MAX_RETRY_COUNT": "4",
+    "RETRY_BASE_DELAY_SECONDS": "2",
+    "GRAPH_REQUEST_TIMEOUT_SECONDS": "100",
+    "LOG_LEVEL": "Information"
+  }
+}

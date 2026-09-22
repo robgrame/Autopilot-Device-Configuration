@@ -1,0 +1,35 @@
+# Azure Functions
+bin/
+obj/
+appsettings.json
+local.settings.json
+
+# Azure Developer CLI local state
+.azure/*
+!.azure/deployment-plan.md
+
+# PowerShell
+*.ps1xml
+TestResults/
+coverage.xml
+
+# npm artifact used only for AZD ZIP packaging
+package-lock.json
+node_modules/
+
+# Editors and operating systems
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+.idea/
+.history/
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# Azurite
+__blobstorage__/
+__queuestorage__/
+__azurite_db*__.json

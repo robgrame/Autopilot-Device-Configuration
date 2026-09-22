@@ -1,0 +1,10 @@
+.git*
+.github/
+.azure/
+infra/
+scripts/
+tests/
+README.md
+LICENSE
+VERSION
+local.settings*.json
