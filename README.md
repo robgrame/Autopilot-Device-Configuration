@@ -5,7 +5,7 @@
 ### Secure, serverless Windows Autopilot naming and Group Tag automation
 
 [![CI](https://github.com/robgrame/Autopilot-Device-Configuration/actions/workflows/ci.yml/badge.svg)](https://github.com/robgrame/Autopilot-Device-Configuration/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.2.0-2563eb.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-0.2.1-2563eb.svg)](VERSION)
 [![PowerShell](https://img.shields.io/badge/PowerShell-7.4-5391FE.svg?logo=powershell&logoColor=white)](https://learn.microsoft.com/azure/azure-functions/functions-reference-powershell)
 [![Azure Functions](https://img.shields.io/badge/Azure%20Functions-Flex%20Consumption-0062AD.svg?logo=azurefunctions&logoColor=white)](https://learn.microsoft.com/azure/azure-functions/flex-consumption-plan)
 [![Microsoft Graph](https://img.shields.io/badge/Microsoft%20Graph-v1.0-00A4EF.svg?logo=microsoft&logoColor=white)](https://learn.microsoft.com/graph/)
@@ -13,6 +13,7 @@
 
 **Correlate approved inventory records with Windows Autopilot devices by exact serial number, validate eligibility, and safely apply Device Name and Group Tag changes through Microsoft Graph.**
 
+[Documentation](docs/README.md) ·
 [Architecture](#architecture) ·
 [Deployment](#deployment) ·
 [Configuration](#configuration) ·
@@ -26,6 +27,12 @@
 ## ✨ Overview
 
 This repository provides a secure-by-default Proof of Concept and MVP for replacing manual Windows Autopilot naming and Group Tag operations with an auditable Azure-hosted workflow.
+
+> [!TIP]
+> The complete project documentation is available in the
+> **[documentation portal](docs/README.md)**, including deployment, security,
+> configuration, operations, troubleshooting, governance, and the editable
+> customer email template.
 
 ### Key capabilities
 
@@ -270,6 +277,12 @@ The Autopilot identity alone does not reliably expose the current Microsoft Entr
 .
 |-- .azure/deployment-plan.md
 |-- .github/workflows/ci.yml
+|-- docs/
+|   |-- README.md
+|   |-- architecture.md
+|   |-- deployment-guide.md
+|   |-- operations-runbook.md
+|   `-- email/
 |-- infra/
 |   |-- main.bicep
 |   |-- main.parameters.json

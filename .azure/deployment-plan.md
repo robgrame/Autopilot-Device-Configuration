@@ -182,7 +182,7 @@ Replace the packaged provider with a CMDB/API provider, add managed-device and E
 | Check | Command | Result | Timestamp |
 |-------|---------|--------|-----------|
 | PowerShell and JSON syntax | PowerShell parser and `ConvertFrom-Json` across repository | Pass | 2026-09-22 |
-| Unit tests | `.\scripts\Invoke-Tests.ps1` | 33 passed, 0 failed | 2026-09-22 |
+| Unit tests | `.\scripts\Invoke-Tests.ps1` | 44 passed, 0 failed | 2026-09-22 |
 | Bicep compilation | `az bicep build --stdout --file infra\main.bicep` | Pass | 2026-09-22 |
 | Secret pattern scan | Repository regex scan excluding documentation examples | No committed secret found | 2026-09-22 |
 | AZD installation | `azd version` | 1.34.1 | 2026-09-22 |

@@ -1,0 +1,157 @@
+From:
+To:
+Cc:
+Subject: Presentazione soluzione Windows Autopilot Device Configuration
+Date: Tue, 22 Sep 2026 20:58:53 +0200
+MIME-Version: 1.0
+X-Unsent: 1
+X-Project-Version: 0.2.1
+Content-Type: multipart/alternative; boundary="AutopilotDeviceConfigurationBoundary"
+
+--AutopilotDeviceConfigurationBoundary
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Gentili,
+
+desideriamo condividere la soluzione Windows Autopilot Device Configuration, progettata per automatizzare in modo sicuro, controllato e verificabile l'assegnazione del Device Name e del Group Tag ai dispositivi Windows Autopilot.
+
+La soluzione utilizza un'Azure Function PowerShell con esecuzione pianificata e Microsoft Graph. L'accesso ai servizi Azure e Microsoft Graph avviene tramite Managed Identity, senza credenziali applicative, chiavi di storage o token SAS archiviati nel codice.
+
+Principali caratteristiche:
+
+- associazione dei dispositivi tramite corrispondenza esatta e normalizzata del numero di serie;
+- aggiornamento controllato di Device Name e Group Tag attraverso Microsoft Graph;
+- modalita dry-run attiva per impostazione predefinita;
+- pilot allow-list obbligatoria prima di abilitare le modifiche;
+- inventario gestibile tramite file JSON incluso nel pacchetto oppure Blob Storage privato;
+- caricamento dell'inventario tramite identita Microsoft Entra e Azure RBAC;
+- validazioni fail-closed per record incompleti, duplicati o non conformi;
+- logging strutturato e telemetria con Application Insights;
+- infrastruttura ripetibile e versionata tramite Bicep e Azure Developer CLI;
+- pipeline CI con test Pester e controlli automatici su PowerShell, JSON e Bicep.
+
+L'architettura non espone endpoint HTTP pubblici: l'elaborazione viene avviata esclusivamente da un timer trigger. La modalita Blob consente inoltre di aggiornare l'inventario operativo senza distribuire nuovamente il codice della Function.
+
+Il repository pubblico, contenente codice sorgente, documentazione, infrastruttura, script operativi e test, e disponibile al seguente indirizzo:
+
+https://github.com/robgrame/Autopilot-Device-Configuration
+
+Versione corrente: 0.2.1
+
+Prima della messa in esercizio saranno necessari:
+
+1. conferma della subscription Azure e della regione di destinazione;
+2. validazione del modello dati dell'inventario;
+3. distribuzione iniziale con dry-run abilitato;
+4. assegnazione alla Managed Identity del permesso Microsoft Graph richiesto;
+5. esecuzione di un pilot su un insieme limitato di dispositivi controllati;
+6. verifica dei risultati e successiva approvazione dell'eventuale modalita di scrittura.
+
+Restiamo a disposizione per la revisione tecnica della soluzione e per concordare le attivita di validazione e avvio del pilot.
+
+Cordiali saluti,
+
+[Nome e Cognome]
+[Ruolo]
+[Azienda]
+[Telefono]
+[E-mail]
+
+--AutopilotDeviceConfigurationBoundary
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Windows Autopilot Device Configuration</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f6fa;font-family:Segoe UI,Arial,sans-serif;color:#1f2937;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f3f6fa;">
+    <tr>
+      <td align="center" style="padding:28px 12px;">
+        <table role="presentation" width="680" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:680px;background-color:#ffffff;border:1px solid #dbe3ee;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="padding:30px 36px;background-color:#0f3d63;color:#ffffff;">
+              <div style="font-size:13px;letter-spacing:1.2px;text-transform:uppercase;color:#b9d9f2;">Azure &amp; Microsoft Intune Automation</div>
+              <h1 style="margin:8px 0 0;font-size:28px;line-height:1.25;font-weight:650;">Windows Autopilot Device Configuration</h1>
+              <p style="margin:12px 0 0;font-size:16px;line-height:1.5;color:#e5f1fa;">Automazione sicura di Device Name e Group Tag tramite Azure Functions, Microsoft Graph e Managed Identity.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:30px 36px;">
+              <p style="margin:0 0 18px;font-size:16px;line-height:1.65;">Gentili,</p>
+              <p style="margin:0 0 20px;font-size:16px;line-height:1.65;">desideriamo condividere la soluzione <strong>Windows Autopilot Device Configuration</strong>, progettata per automatizzare in modo sicuro, controllato e verificabile l'assegnazione del <strong>Device Name</strong> e del <strong>Group Tag</strong> ai dispositivi Windows Autopilot.</p>
+              <p style="margin:0 0 24px;font-size:16px;line-height:1.65;">La soluzione utilizza un'Azure Function PowerShell con esecuzione pianificata e Microsoft Graph. L'accesso ai servizi avviene tramite <strong>Managed Identity</strong>, senza credenziali applicative, chiavi di storage o token SAS archiviati nel codice.</p>
+
+              <h2 style="margin:0 0 14px;font-size:20px;color:#0f3d63;">Caratteristiche principali</h2>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td width="50%" valign="top" style="padding:0 8px 12px 0;">
+                    <div style="padding:16px;border:1px solid #dbe3ee;border-radius:8px;background-color:#f8fafc;">
+                      <strong style="color:#0f3d63;">Sicurezza by design</strong>
+                      <div style="margin-top:6px;font-size:14px;line-height:1.5;">Managed Identity, Azure RBAC, nessun segreto applicativo e nessun endpoint HTTP pubblico.</div>
+                    </div>
+                  </td>
+                  <td width="50%" valign="top" style="padding:0 0 12px 8px;">
+                    <div style="padding:16px;border:1px solid #dbe3ee;border-radius:8px;background-color:#f8fafc;">
+                      <strong style="color:#0f3d63;">Controlli operativi</strong>
+                      <div style="margin-top:6px;font-size:14px;line-height:1.5;">Dry-run predefinito, pilot allow-list e validazioni fail-closed.</div>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td width="50%" valign="top" style="padding:0 8px 12px 0;">
+                    <div style="padding:16px;border:1px solid #dbe3ee;border-radius:8px;background-color:#f8fafc;">
+                      <strong style="color:#0f3d63;">Inventario flessibile</strong>
+                      <div style="margin-top:6px;font-size:14px;line-height:1.5;">JSON incluso per bootstrap oppure Blob Storage privato per aggiornamenti senza redeploy.</div>
+                    </div>
+                  </td>
+                  <td width="50%" valign="top" style="padding:0 0 12px 8px;">
+                    <div style="padding:16px;border:1px solid #dbe3ee;border-radius:8px;background-color:#f8fafc;">
+                      <strong style="color:#0f3d63;">Governance e qualita</strong>
+                      <div style="margin-top:6px;font-size:14px;line-height:1.5;">Bicep, Azure Developer CLI, Application Insights, test Pester e pipeline CI.</div>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <h2 style="margin:18px 0 12px;font-size:20px;color:#0f3d63;">Repository della soluzione</h2>
+              <p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Il repository pubblico contiene codice sorgente, documentazione, infrastruttura, script operativi e test automatici.</p>
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="border-radius:6px;background-color:#2563eb;">
+                    <a href="https://github.com/robgrame/Autopilot-Device-Configuration" style="display:inline-block;padding:12px 20px;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;">Apri il repository GitHub</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 24px;font-size:13px;color:#64748b;">Versione corrente: <strong>0.2.1</strong><br>Link diretto: https://github.com/robgrame/Autopilot-Device-Configuration</p>
+
+              <h2 style="margin:0 0 12px;font-size:20px;color:#0f3d63;">Passi proposti per il pilot</h2>
+              <ol style="margin:0 0 24px;padding-left:22px;font-size:15px;line-height:1.75;">
+                <li>Confermare subscription Azure e regione di destinazione.</li>
+                <li>Validare il modello dati dell'inventario.</li>
+                <li>Distribuire la soluzione con dry-run abilitato.</li>
+                <li>Assegnare alla Managed Identity il permesso Microsoft Graph richiesto.</li>
+                <li>Eseguire il pilot su un insieme limitato di dispositivi controllati.</li>
+                <li>Verificare i risultati e approvare l'eventuale modalita di scrittura.</li>
+              </ol>
+
+              <p style="margin:0 0 22px;font-size:16px;line-height:1.65;">Restiamo a disposizione per la revisione tecnica della soluzione e per concordare le attivita di validazione e avvio del pilot.</p>
+              <p style="margin:0;font-size:15px;line-height:1.6;">Cordiali saluti,<br><br><strong>[Nome e Cognome]</strong><br>[Ruolo]<br>[Azienda]<br>[Telefono]<br>[E-mail]</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 36px;background-color:#eef4f8;font-size:12px;line-height:1.5;color:#64748b;">Messaggio predisposto come bozza modificabile. Compilare i campi destinatari e firma prima dell'invio.</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+
+--AutopilotDeviceConfigurationBoundary--
