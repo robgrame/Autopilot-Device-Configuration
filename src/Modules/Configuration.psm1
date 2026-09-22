@@ -62,7 +62,7 @@ function Get-AutopilotConfiguration {
 
     $dryRun = ConvertTo-StrictBoolean -Value $env:DRY_RUN -Default $true -SettingName 'DRY_RUN'
     $provider = if ([string]::IsNullOrWhiteSpace($env:INVENTORY_PROVIDER)) { 'package-json' } else { $env:INVENTORY_PROVIDER.Trim().ToLowerInvariant() }
-    if ($provider -ne 'package-json') {
+    if ($provider -notin @('package-json', 'storage-blob')) {
         $exception = [System.ArgumentException]::new("Unsupported INVENTORY_PROVIDER '$provider'.")
         $exception.Data['ErrorClass'] = 'configuration error'
         throw $exception
@@ -74,6 +74,23 @@ function Get-AutopilotConfiguration {
     }
     else {
         Join-Path $FunctionRoot $inventoryRelativePath
+    }
+
+    $inventoryStorageBlobUrl = if ([string]::IsNullOrWhiteSpace($env:INVENTORY_STORAGE_BLOB_URL)) { '' } else { $env:INVENTORY_STORAGE_BLOB_URL.Trim() }
+    if ($provider -eq 'storage-blob') {
+        $parsedBlobUri = $null
+        $isValidBlobUri = [uri]::TryCreate($inventoryStorageBlobUrl, [System.UriKind]::Absolute, [ref]$parsedBlobUri)
+        $pathSegments = if ($isValidBlobUri) { @($parsedBlobUri.AbsolutePath.Trim('/') -split '/') } else { @() }
+        $hasInvalidPath = @($pathSegments).Count -lt 2 -or @($pathSegments | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0
+        if (-not $isValidBlobUri -or
+            $parsedBlobUri.Scheme -ne 'https' -or
+            $parsedBlobUri.Host -notmatch '^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]\.blob\.core\.windows\.net$' -or
+            $hasInvalidPath -or
+            -not [string]::IsNullOrWhiteSpace($parsedBlobUri.Query)) {
+            $exception = [System.ArgumentException]::new('INVENTORY_STORAGE_BLOB_URL must identify a Blob in public Azure over HTTPS and must not contain a query string or SAS token.')
+            $exception.Data['ErrorClass'] = 'configuration error'
+            throw $exception
+        }
     }
 
     $graphApiVersion = if ([string]::IsNullOrWhiteSpace($env:GRAPH_API_VERSION)) { 'v1.0' } else { $env:GRAPH_API_VERSION.Trim() }
@@ -102,6 +119,7 @@ function Get-AutopilotConfiguration {
         DryRun = $dryRun
         InventoryProvider = $provider
         InventoryPath = $inventoryPath
+        InventoryStorageBlobUrl = $inventoryStorageBlobUrl
         DeviceNameValidationPattern = if ([string]::IsNullOrWhiteSpace($env:DEVICE_NAME_VALIDATION_PATTERN)) { '^[A-Za-z][A-Za-z0-9-]{0,14}$' } else { $env:DEVICE_NAME_VALIDATION_PATTERN }
         GroupTagValidationPattern = if ([string]::IsNullOrWhiteSpace($env:GROUP_TAG_VALIDATION_PATTERN)) { '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' } else { $env:GROUP_TAG_VALIDATION_PATTERN }
         PilotSerialNumbers = $pilotSerialNumbers

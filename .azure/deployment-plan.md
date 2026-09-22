@@ -30,7 +30,7 @@ No Azure deployment is authorized in this phase because the authenticated accoun
 | Component | Type | Technology | Path |
 |-----------|------|------------|------|
 | Autopilot timer worker | Scheduled worker | Azure Functions v4, PowerShell 7.4 | `src` |
-| Inventory provider | Application component | JSON package provider behind a PowerShell interface | `src/Modules/InventoryProvider.psm1` |
+| Inventory provider | Application component | JSON package or private Azure Blob provider behind a PowerShell interface | `src/Modules/InventoryProvider.psm1` |
 | Microsoft Graph client | Application component | Direct REST with managed identity | `src/Modules/GraphClient.psm1` |
 | Validation and eligibility | Application component | PowerShell modules | `src/Modules` |
 | Infrastructure | IaC | AZD + Bicep | `infra` |
@@ -59,7 +59,7 @@ No Azure deployment is authorized in this phase because the authenticated accoun
 | Central logs | Log Analytics | 30-day retention |
 | Authentication | System-assigned Managed Identity | No credentials |
 
-The Function App has no HTTP trigger. The only trigger is a timer. The MVP inventory is a JSON file in the deployment package, isolated behind an inventory-provider abstraction. The Function calls Microsoft Graph `v1.0` directly to avoid the Microsoft Graph PowerShell SDK package size and cold-start cost.
+The Function App has no HTTP trigger. The only trigger is a timer. Inventory can be read from the deployment package or a private Blob in the existing Function Storage Account. Blob access uses Managed Identity and Microsoft Entra authorization; no account key or SAS token is used. The selected provider is persisted in the AZD environment so later provisioning does not silently reset it. The Function calls Microsoft Graph `v1.0` directly to avoid the Microsoft Graph PowerShell SDK package size and cold-start cost.
 
 ## 6. Microsoft Graph Design
 
@@ -75,6 +75,8 @@ The permission-assignment script resolves the Microsoft Graph service principal 
 ## 7. Security and Safety
 
 - System-assigned Managed Identity only.
+- Private Blob inventory ingestion reuses the existing Storage Account and rejects SAS-bearing URLs.
+- Blob inventory URLs are intentionally restricted to public Azure in this MVP.
 - No client secrets, certificates, stored tokens, or interactive runtime authentication.
 - Storage shared-key access disabled.
 - TLS 1.2 minimum and HTTPS only.
@@ -84,7 +86,7 @@ The permission-assignment script resolves the Microsoft Graph service principal 
 - Exact normalized serial matches only; duplicates and ambiguity are fail-closed.
 - Explicit inventory eligibility plus provisioning, lifecycle, join-type, legacy, exclusion, and conflict checks.
 - Structured logs exclude tokens, authorization headers, and full Graph response bodies.
-- Transient Graph errors use bounded exponential backoff with jitter and `Retry-After`.
+- Transient Graph and Blob Storage errors use bounded exponential backoff with jitter.
 
 ## 8. Provisioning Limit Checklist
 
@@ -123,6 +125,8 @@ Quota validation is a deployment prerequisite, not a repository-generation prere
 ## 11. Known Limitations
 
 - The packaged JSON inventory requires a code deployment to change.
+- The optional Blob provider removes that deployment requirement while retaining the package provider for bootstrap and local testing.
+- HTTP ingestion is intentionally deferred because it adds an externally reachable trigger, authentication policy, request validation, and concurrency/audit concerns.
 - Join type cannot be safely derived from the Autopilot identity alone. The MVP therefore requires explicit approved inventory metadata and fails closed; production should add the managed-device and Entra-device lookups.
 - Execution history is retained in telemetry rather than a dedicated change-history store.
 - No private endpoints are enabled by default for the cost-optimized MVP, although the infrastructure supports optional VNet integration.

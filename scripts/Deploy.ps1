@@ -1,4 +1,4 @@
-# Version: 0.1.0
+# Version: 0.2.0
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
@@ -39,6 +39,10 @@ if ($LASTEXITCODE -ne 0) {
 
 azd env set AZURE_SUBSCRIPTION_ID $SubscriptionId
 azd env set AZURE_LOCATION $Location
+$inventoryProvider = azd env get-value INVENTORY_PROVIDER 2>$null
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($inventoryProvider)) {
+    azd env set INVENTORY_PROVIDER package-json
+}
 
 azd provision --no-prompt
 if ($LASTEXITCODE -ne 0) { throw 'Azure infrastructure provisioning failed.' }

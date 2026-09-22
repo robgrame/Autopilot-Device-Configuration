@@ -7,6 +7,7 @@
     "DRY_RUN": "true",
     "INVENTORY_PROVIDER": "package-json",
     "INVENTORY_PATH": "inventory/sample-inventory.json",
+    "INVENTORY_STORAGE_BLOB_URL": "https://stexample.blob.core.windows.net/inventory/inventory.json",
     "DEVICE_NAME_VALIDATION_PATTERN": "^[A-Za-z][A-Za-z0-9-]{0,14}$",
     "GROUP_TAG_VALIDATION_PATTERN": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
     "PILOT_SERIAL_NUMBERS": "SERIAL001",

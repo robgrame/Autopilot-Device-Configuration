@@ -1,5 +1,6 @@
 $script:ModuleRoot = Join-Path $PSScriptRoot '..\src\Modules'
 Import-Module (Join-Path $script:ModuleRoot 'GraphClient.psm1') -Force
+Import-Module (Join-Path $script:ModuleRoot 'InventoryProvider.psm1') -Force
 
 BeforeAll {
     $moduleRoot = Join-Path $PSScriptRoot '..\src\Modules'
@@ -464,5 +465,253 @@ Describe 'Configuration and inventory safety' {
         $records = @(Get-DeviceInventoryRecords -Configuration $configuration)
         $records.Count | Should -Be 1
         $records[0].SerialNumber | Should -Be 'SERIAL001'
+    }
+
+    It 'accepts a private HTTPS Azure Blob URL for the storage provider' {
+        $previousValues = @{
+            DRY_RUN = $env:DRY_RUN
+            INVENTORY_PROVIDER = $env:INVENTORY_PROVIDER
+            INVENTORY_STORAGE_BLOB_URL = $env:INVENTORY_STORAGE_BLOB_URL
+            PILOT_SERIAL_NUMBERS = $env:PILOT_SERIAL_NUMBERS
+        }
+        try {
+            $env:DRY_RUN = 'true'
+            $env:INVENTORY_PROVIDER = 'storage-blob'
+            $env:INVENTORY_STORAGE_BLOB_URL = 'https://stexample.blob.core.windows.net/inventory/inventory.json'
+            $env:PILOT_SERIAL_NUMBERS = ''
+
+            $configuration = Get-AutopilotConfiguration -FunctionRoot $TestDrive
+            $configuration.InventoryProvider | Should -Be 'storage-blob'
+            $configuration.InventoryStorageBlobUrl | Should -Be 'https://stexample.blob.core.windows.net/inventory/inventory.json'
+        }
+        finally {
+            foreach ($name in $previousValues.Keys) {
+                Set-Item -Path "env:$name" -Value $previousValues[$name]
+            }
+        }
+    }
+
+    It 'rejects SAS tokens in the configured inventory Blob URL' {
+        $previousValues = @{
+            DRY_RUN = $env:DRY_RUN
+            INVENTORY_PROVIDER = $env:INVENTORY_PROVIDER
+            INVENTORY_STORAGE_BLOB_URL = $env:INVENTORY_STORAGE_BLOB_URL
+        }
+        try {
+            $env:DRY_RUN = 'true'
+            $env:INVENTORY_PROVIDER = 'storage-blob'
+            $env:INVENTORY_STORAGE_BLOB_URL = 'https://stexample.blob.core.windows.net/inventory/inventory.json?sig=not-allowed'
+
+            { Get-AutopilotConfiguration -FunctionRoot $TestDrive } | Should -Throw '*must not contain a query string or SAS token*'
+        }
+        finally {
+            foreach ($name in $previousValues.Keys) {
+                Set-Item -Path "env:$name" -Value $previousValues[$name]
+            }
+        }
+    }
+
+    It 'rejects a storage provider URL that does not identify a Blob' {
+        $previousValues = @{
+            DRY_RUN = $env:DRY_RUN
+            INVENTORY_PROVIDER = $env:INVENTORY_PROVIDER
+            INVENTORY_STORAGE_BLOB_URL = $env:INVENTORY_STORAGE_BLOB_URL
+        }
+        try {
+            $env:DRY_RUN = 'true'
+            $env:INVENTORY_PROVIDER = 'storage-blob'
+            $env:INVENTORY_STORAGE_BLOB_URL = 'https://stexample.blob.core.windows.net/'
+
+            { Get-AutopilotConfiguration -FunctionRoot $TestDrive } | Should -Throw '*must identify a Blob*'
+        }
+        finally {
+            foreach ($name in $previousValues.Keys) {
+                Set-Item -Path "env:$name" -Value $previousValues[$name]
+            }
+        }
+    }
+
+    It 'loads inventory records through the storage-blob provider' {
+        $configuration = [pscustomobject]@{
+            InventoryProvider = 'storage-blob'
+            InventoryStorageBlobUrl = 'https://stexample.blob.core.windows.net/inventory/inventory.json'
+        }
+        $content = @(
+            [pscustomobject]@{
+                SerialNumber = 'SERIAL002'
+                DeviceName = 'DE-LT-00456'
+                GroupTag = 'NATIVE-DE-LAPTOP'
+                EligibleForAutomation = $true
+            },
+            [pscustomobject]@{
+                SerialNumber = 'SERIAL003'
+                DeviceName = 'DE-LT-00457'
+                GroupTag = 'NATIVE-DE-LAPTOP'
+                EligibleForAutomation = $true
+            }
+        ) | ConvertTo-Json
+
+        $records = @(Get-DeviceInventoryRecords `
+            -Configuration $configuration `
+            -GetBlobContentOperation { param($BlobUrl) $content }.GetNewClosure())
+
+        $records.Count | Should -Be 2
+        $records[0].SerialNumber | Should -Be 'SERIAL002'
+        $records[1].SerialNumber | Should -Be 'SERIAL003'
+    }
+
+    It 'rejects Blob inventory content larger than 5 MB' {
+        $configuration = [pscustomobject]@{
+            InventoryProvider = 'storage-blob'
+            InventoryStorageBlobUrl = 'https://stexample.blob.core.windows.net/inventory/inventory.json'
+        }
+
+        {
+            Get-DeviceInventoryRecords `
+                -Configuration $configuration `
+                -GetBlobContentOperation { 'x' * (5MB + 1) }
+        } | Should -Throw '*exceeds the 5 MB MVP limit*'
+    }
+
+    It 'returns an empty collection for an empty Blob inventory' {
+        $configuration = [pscustomobject]@{
+            InventoryProvider = 'storage-blob'
+            InventoryStorageBlobUrl = 'https://stexample.blob.core.windows.net/inventory/inventory.json'
+        }
+
+        $records = Get-DeviceInventoryRecords `
+            -Configuration $configuration `
+            -GetBlobContentOperation { '[]' }
+
+        $null -eq $records | Should -BeFalse
+        $records.Count | Should -Be 0
+    }
+}
+
+Describe 'Azure Blob inventory transport' {
+    InModuleScope InventoryProvider {
+        BeforeEach {
+            $configuration = [pscustomobject]@{
+                MaxRetryCount = 2
+                RetryBaseDelaySeconds = 1
+                GraphRequestTimeoutSeconds = 30
+            }
+            Mock Get-ManagedIdentityStorageToken { 'token' }
+            Mock Start-Sleep {}
+        }
+
+        It 'sends the Managed Identity token and required Storage headers' {
+            $script:CapturedHeaders = $null
+            Mock Invoke-WebRequest {
+                param($Method, $Uri, $Headers, $TimeoutSec)
+                $script:CapturedHeaders = $Headers
+                [pscustomobject]@{ Content = '[]' }
+            }
+
+            Get-StorageBlobInventoryContent `
+                -BlobUrl 'https://stexample.blob.core.windows.net/inventory/inventory.json' `
+                -Configuration $configuration | Should -Be '[]'
+
+            $script:CapturedHeaders.Authorization | Should -Be 'Bearer token'
+            $script:CapturedHeaders['x-ms-date'] | Should -Not -BeNullOrEmpty
+            $script:CapturedHeaders['x-ms-version'] | Should -Be '2023-11-03'
+        }
+
+        It 'retries transient Azure Storage failures' {
+            $script:RequestCount = 0
+            Mock Invoke-WebRequest {
+                $script:RequestCount++
+                if ($script:RequestCount -lt 3) {
+                    $exception = [System.Exception]::new('temporary')
+                    $exception.Data['StatusCode'] = 503
+                    throw $exception
+                }
+                [pscustomobject]@{ Content = '[]' }
+            }
+
+            Get-StorageBlobInventoryContent `
+                -BlobUrl 'https://stexample.blob.core.windows.net/inventory/inventory.json' `
+                -Configuration $configuration | Should -Be '[]'
+
+            Should -Invoke Invoke-WebRequest -Times 3 -Exactly
+            Should -Invoke Start-Sleep -Times 2 -Exactly
+        }
+
+        It 'classifies Azure Storage authorization failures' {
+            Mock Invoke-WebRequest {
+                $exception = [System.Exception]::new('forbidden')
+                $exception.Data['StatusCode'] = 403
+                throw $exception
+            }
+
+            try {
+                Get-StorageBlobInventoryContent `
+                    -BlobUrl 'https://stexample.blob.core.windows.net/inventory/inventory.json' `
+                    -Configuration $configuration
+                throw 'Expected an inventory authorization failure.'
+            }
+            catch {
+                $_.Exception.Data['ErrorClass'] | Should -Be 'inventory authorization error'
+                $_.Exception.Message | Should -Match 'HTTP 403'
+            }
+
+            Should -Invoke Invoke-WebRequest -Times 1 -Exactly
+        }
+
+        It 'reads status codes from real PowerShell HTTP response exceptions' {
+            Mock Invoke-WebRequest {
+                $response = [System.Net.Http.HttpResponseMessage]::new([System.Net.HttpStatusCode]::NotFound)
+                throw [Microsoft.PowerShell.Commands.HttpResponseException]::new('not found', $response)
+            }
+
+            try {
+                Get-StorageBlobInventoryContent `
+                    -BlobUrl 'https://stexample.blob.core.windows.net/inventory/inventory.json' `
+                    -Configuration $configuration
+                throw 'Expected a missing inventory Blob failure.'
+            }
+            catch {
+                $_.Exception.Data['ErrorClass'] | Should -Be 'configuration error'
+                $_.Exception.Message | Should -Match 'HTTP 404'
+            }
+
+            Should -Invoke Invoke-WebRequest -Times 1 -Exactly
+        }
+
+    }
+}
+
+Describe 'Azure Storage Managed Identity token acquisition' {
+    InModuleScope InventoryProvider {
+        It 'requests a Managed Identity token for Azure Storage' {
+            $previousEndpoint = $env:IDENTITY_ENDPOINT
+            $previousHeader = $env:IDENTITY_HEADER
+            try {
+                $env:IDENTITY_ENDPOINT = 'http://localhost/identity'
+                $env:IDENTITY_HEADER = 'identity-header'
+                $script:CachedStorageToken = $null
+                $script:CachedStorageTokenExpiry = [DateTimeOffset]::MinValue
+                $script:TokenUri = $null
+                $script:TokenHeaders = $null
+                Mock Invoke-RestMethod {
+                    param($Method, $Uri, $Headers, $TimeoutSec)
+                    $script:TokenUri = $Uri
+                    $script:TokenHeaders = $Headers
+                    [pscustomobject]@{
+                        access_token = 'storage-token'
+                        expires_on = [DateTimeOffset]::UtcNow.AddHours(1).ToUnixTimeSeconds()
+                    }
+                }
+
+                Get-ManagedIdentityStorageToken | Should -Be 'storage-token'
+                [uri]::UnescapeDataString($script:TokenUri) | Should -Match 'resource=https://storage.azure.com/'
+                $script:TokenHeaders['X-IDENTITY-HEADER'] | Should -Be 'identity-header'
+                $script:TokenHeaders.Metadata | Should -Be 'true'
+            }
+            finally {
+                $env:IDENTITY_ENDPOINT = $previousEndpoint
+                $env:IDENTITY_HEADER = $previousHeader
+            }
+        }
     }
 }

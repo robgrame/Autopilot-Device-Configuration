@@ -1,28 +1,73 @@
-# Autopilot Device Configuration
+<div align="center">
 
-Azure Functions automation that assigns the desired Windows Autopilot device display name and Group Tag by correlating an approved inventory with Windows Autopilot identities through an exact normalized hardware serial number.
+# 🚀 Autopilot Device Configuration
 
-The repository implements a secure-by-default Proof of Concept and MVP:
+### Secure, serverless Windows Autopilot naming and Group Tag automation
 
-- one timer-triggered Azure Function;
-- PowerShell 7.4 and direct Microsoft Graph REST calls;
-- system-assigned Managed Identity;
-- Microsoft Graph `v1.0`;
-- Bicep infrastructure deployed with Azure Developer CLI;
-- packaged JSON inventory behind a replaceable provider abstraction;
-- `DRY_RUN=true` and pilot allow-list protection by default;
-- structured Application Insights logging;
-- Pester tests with all Graph operations mocked.
+[![CI](https://github.com/robgrame/Autopilot-Device-Configuration/actions/workflows/ci.yml/badge.svg)](https://github.com/robgrame/Autopilot-Device-Configuration/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.2.0-2563eb.svg)](VERSION)
+[![PowerShell](https://img.shields.io/badge/PowerShell-7.4-5391FE.svg?logo=powershell&logoColor=white)](https://learn.microsoft.com/azure/azure-functions/functions-reference-powershell)
+[![Azure Functions](https://img.shields.io/badge/Azure%20Functions-Flex%20Consumption-0062AD.svg?logo=azurefunctions&logoColor=white)](https://learn.microsoft.com/azure/azure-functions/flex-consumption-plan)
+[![Microsoft Graph](https://img.shields.io/badge/Microsoft%20Graph-v1.0-00A4EF.svg?logo=microsoft&logoColor=white)](https://learn.microsoft.com/graph/)
+[![License](https://img.shields.io/badge/license-MIT-16a34a.svg)](LICENSE)
 
-Version: **0.1.1**
+**Correlate approved inventory records with Windows Autopilot devices by exact serial number, validate eligibility, and safely apply Device Name and Group Tag changes through Microsoft Graph.**
 
-## Architecture review
+[Architecture](#architecture) ·
+[Deployment](#deployment) ·
+[Configuration](#configuration) ·
+[Testing](#testing) ·
+[Operations](#operations)
+
+</div>
+
+---
+
+## ✨ Overview
+
+This repository provides a secure-by-default Proof of Concept and MVP for replacing manual Windows Autopilot naming and Group Tag operations with an auditable Azure-hosted workflow.
+
+### Key capabilities
+
+- ⏱️ **Scheduled automation** — one timer-triggered Azure Function with no public HTTP endpoint.
+- 🔐 **Credential-free access** — system-assigned Managed Identity and least-privilege Microsoft Graph permissions.
+- 🛡️ **Safe rollout controls** — `DRY_RUN=true`, pilot serial allow-list, exact matching, and fail-closed eligibility.
+- ♻️ **Idempotent processing** — compliant devices are detected without unnecessary Graph updates.
+- 📊 **Operational visibility** — structured Application Insights logs, correlation IDs, and execution summaries.
+- 🧩 **Replaceable inventory source** — packaged JSON for bootstrap or private Blob ingestion for routine updates.
+- 🧪 **Tenant-independent tests** — Microsoft Graph calls are mocked with Pester.
+- 🏗️ **Repeatable infrastructure** — Azure Developer CLI and modular Bicep.
+
+## 🧰 Technology stack
+
+| Technology | Version / service | Role in the solution |
+|:-----------|:------------------|:---------------------|
+| <img src="https://cdn.simpleicons.org/microsoftazure/0078D4" width="22" alt="Azure"> **Azure Functions** | Flex Consumption `FC1` | Serverless timer-triggered execution with scale-to-zero. |
+| <img src="https://cdn.simpleicons.org/powershell/5391FE" width="22" alt="PowerShell"> **PowerShell** | `7.4` | Modular application logic, validation, retry handling, and administration scripts. |
+| <img src="https://cdn.simpleicons.org/microsoft/5E5E5E" width="22" alt="Microsoft"> **Microsoft Graph** | REST `v1.0` | Reads and updates Windows Autopilot device identities. |
+| <img src="https://cdn.simpleicons.org/microsoftazure/0078D4" width="22" alt="Azure Blob Storage"> **Azure Blob Storage** | Private container | Optional inventory ingestion without redeploying the Function package. |
+| ☁️ **Windows Autopilot / Intune** | Microsoft Intune | Target platform for Device Name and Group Tag assignment. |
+| 🪪 **Managed Identity** | System-assigned | Acquires Graph tokens without stored credentials or certificates. |
+| 🏗️ **Bicep + AZD** | Infrastructure as Code | Provisions and packages the complete Azure solution. |
+| 📈 **Application Insights** | Workspace-based | Structured telemetry, failures, audit events, and execution summaries. |
+| 🧪 **Pester** | `5.5+` | Unit and behavior tests without a live Microsoft tenant. |
+| ⚙️ **GitHub Actions** | CI | Runs Pester, PowerShell parsing, and Bicep compilation on every change. |
+
+> [!IMPORTANT]
+> The deployed solution starts in **dry-run mode**. Write mode cannot be enabled without an explicit pilot serial allow-list.
+
+<a id="architecture"></a>
+
+## 🏛️ Architecture review
 
 ### 1. Proposed architecture
 
 ```mermaid
 flowchart LR
-    Inventory["MVP inventory provider<br/>JSON deployment package"] --> Function["Azure Function<br/>PowerShell 7.4 timer trigger"]
+    Package["Package inventory<br/>JSON file"] --> Provider["Inventory provider"]
+    Blob["Private Blob Storage<br/>inventory.json"] --> Provider
+    Admin["Authorized administrator"] -->|Entra ID upload| Blob
+    Provider --> Function["Azure Function<br/>PowerShell 7.4 timer trigger"]
     Function --> Identity["System-assigned<br/>Managed Identity"]
     Identity --> Graph["Microsoft Graph v1.0"]
     Graph --> Autopilot["Windows Autopilot<br/>device identities"]
@@ -39,7 +84,7 @@ The Function is stateless. A timer invocation loads and validates inventory, ret
 |----------|---------------|
 | Azure Function App | Runs the single scheduled automation workload. |
 | Flex Consumption plan (`FC1`) | Current recommended serverless plan for new Linux Functions; scales to zero and supports PowerShell 7.4. |
-| Storage Account | Required by Azure Functions for host coordination, timer monitoring, and deployment package storage. |
+| Storage Account | Required by Azure Functions for host coordination and deployment; also hosts the optional private `inventory/inventory.json` Blob without adding another Azure resource. |
 | Log Analytics workspace | Central Azure Monitor log store. |
 | Application Insights | Function execution telemetry, structured logs, failures, and performance. |
 | System-assigned Managed Identity | Acquires Microsoft Graph tokens without application credentials. |
@@ -59,11 +104,22 @@ The implementation uses direct REST instead of the Microsoft Graph PowerShell SD
 
 The trade-off is that request construction and error handling are maintained in this repository rather than delegated to the SDK.
 
-### 4. MVP inventory provider
+### 4. Inventory ingestion options
 
-`package-json` reads `src/inventory/sample-inventory.json`. This adds no Azure resource and is suitable for a controlled pilot. The business logic depends on `Get-DeviceInventoryRecords`, not the file format, so a CMDB, REST API, SharePoint, Dataverse, Azure SQL, or other provider can replace it without changing processing or Graph logic.
+The processing engine depends on `Get-DeviceInventoryRecords`, so the inventory source can change without modifying correlation, validation, eligibility, or Graph update logic.
 
-Inventory changes require a new Function deployment in this MVP.
+| Option | Infrastructure impact | Security and operations | Recommendation |
+|--------|-----------------------|-------------------------|----------------|
+| `package-json` | No additional resources | Simplest bootstrap, but inventory changes require a new code deployment. | Keep for local development and the first controlled demonstration. |
+| `storage-blob` | Reuses the existing Function Storage Account and private `inventory` container | Administrators upload JSON through Microsoft Entra RBAC; the Function reads it with Managed Identity. No keys, SAS tokens, or public API. | **Recommended MVP ingestion path.** |
+| HTTP Function | Adds an HTTP trigger, authentication/authorization, request validation, concurrency control, audit requirements, and a public or private ingress decision | Easier system-to-system push, but materially increases the attack surface and operational complexity. | Defer until a CMDB or integration platform genuinely requires REST push ingestion. |
+
+The Blob provider uses the Azure Storage REST API with a token for `https://storage.azure.com/`. Shared Key access remains disabled. The configured Blob URL must use HTTPS and cannot contain a SAS token or query string.
+
+Official references:
+
+- [Get Blob](https://learn.microsoft.com/rest/api/storageservices/get-blob)
+- [Authorize Blob access with Microsoft Entra ID](https://learn.microsoft.com/azure/storage/blobs/authorize-access-azure-active-directory)
 
 ### 5. Microsoft Graph operations
 
@@ -208,7 +264,7 @@ The Autopilot identity alone does not reliably expose the current Microsoft Entr
 - Add dashboards, alerts, deployment environments, and policy-as-code.
 - Add dead-letter or durable orchestration only if batch size and reliability requirements justify the extra resources.
 
-## Repository structure
+## 📁 Repository structure
 
 ```text
 .
@@ -229,7 +285,7 @@ The Autopilot identity alone does not reliably expose the current Microsoft Entr
 `-- VERSION
 ```
 
-## Prerequisites
+## ✅ Prerequisites
 
 ### Azure and Intune
 
@@ -253,7 +309,9 @@ The Autopilot identity alone does not reliably expose the current Microsoft Entr
 - Azure Functions Core Tools v4 for optional local host execution.
 - Pester 5.5 or later.
 
-## Deployment
+<a id="deployment"></a>
+
+## 🚀 Deployment
 
 ### 1. Clone
 
@@ -306,7 +364,22 @@ This step cannot be completed by ordinary Azure resource deployment because it c
 
 The permission script performs verification automatically. It is safe to rerun.
 
-### 6. Test the Function
+### 6. Publish inventory to private Blob Storage
+
+An administrator with **Storage Blob Data Contributor** on the Storage Account and permission to update the Function App configuration can validate, upload, and activate the external inventory provider:
+
+```powershell
+.\scripts\Publish-Inventory.ps1 `
+  -SubscriptionId '<customer-subscription-id>' `
+  -ResourceGroupName '<resource-group>' `
+  -FunctionAppName '<function-app>' `
+  -StorageAccountName '<storage-account>' `
+  -InventoryPath '.\inventory.json'
+```
+
+The script uses Microsoft Entra authentication (`--auth-mode login`), uploads to `inventory/inventory.json`, and switches `INVENTORY_PROVIDER` to `storage-blob`. When run from the repository with an AZD environment selected, it also persists that choice so later provisioning does not revert it; otherwise it warns and prints the required `azd env set` command. It never creates or stores an account key or SAS token.
+
+### 7. Test the Function
 
 Wait for the timer or run the timer function from the Azure portal. Confirm:
 
@@ -316,14 +389,17 @@ Wait for the timer or run the timer function from the Azure portal. Confirm:
 - no `DeviceUpdated` event exists;
 - the Intune Autopilot values remain unchanged.
 
-## Configuration
+<a id="configuration"></a>
+
+## ⚙️ Configuration
 
 | Setting | Default | Purpose |
 |---------|---------|---------|
 | `DRY_RUN` | `true` | Prevents Graph updates and logs `WOULD_UPDATE`. |
 | `TIMER_SCHEDULE` | `0 0 */6 * * *` | NCRONTAB schedule; every six hours. |
-| `INVENTORY_PROVIDER` | `package-json` | Selects the MVP inventory provider. |
+| `INVENTORY_PROVIDER` | `package-json` | Selects `package-json` or `storage-blob`. |
 | `INVENTORY_PATH` | `inventory/sample-inventory.json` | Path inside the Function package. |
+| `INVENTORY_STORAGE_BLOB_URL` | Provisioned private Blob URL | Public-Azure HTTPS Blob URL used by `storage-blob`; query strings and SAS tokens are rejected. |
 | `DEVICE_NAME_VALIDATION_PATTERN` | `^[A-Za-z][A-Za-z0-9-]{0,14}$` | Organizational Device Name rule. |
 | `GROUP_TAG_VALIDATION_PATTERN` | `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$` | Organizational Group Tag rule. |
 | `PILOT_SERIAL_NUMBERS` | Empty in Azure; `SERIAL001` in the local example | Comma-separated serial allow-list. Required for write mode. |
@@ -335,7 +411,7 @@ Wait for the timer or run the timer function from the Azure portal. Confirm:
 
 Configuration is validated before device processing. Invalid Boolean, integer, provider, API-version, or write-mode pilot settings cause a configuration error.
 
-## Inventory format
+## 📋 Inventory format
 
 Minimum business fields:
 
@@ -373,7 +449,22 @@ Validation rules:
 
 All committed sample values are fictitious.
 
-## Dry-run validation
+### Updating inventory without redeployment
+
+After Blob ingestion is enabled, publish a revised JSON file with the same command:
+
+```powershell
+.\scripts\Publish-Inventory.ps1 `
+  -SubscriptionId '<customer-subscription-id>' `
+  -ResourceGroupName '<resource-group>' `
+  -FunctionAppName '<function-app>' `
+  -StorageAccountName '<storage-account>' `
+  -InventoryPath '.\inventory.json'
+```
+
+The next timer execution reads the new Blob content. Administrators upload through their own Microsoft Entra identities and Azure RBAC. The MVP reuses the Function host Storage Account, so its Managed Identity also has the broader Blob permissions required by the Functions runtime; inventory integrity therefore also depends on controlling changes to that identity and Storage Account.
+
+## 🧪 Dry-run validation
 
 1. Add a fictitious-style inventory record using the serial of one controlled Autopilot test device.
 2. Set `EligibleForAutomation=true` and explicit approved eligibility metadata.
@@ -393,7 +484,7 @@ traces
 | order by timestamp desc
 ```
 
-## Enabling write mode
+## ✍️ Enabling write mode
 
 Write mode is an explicit configuration change:
 
@@ -418,7 +509,9 @@ Before enabling it, verify:
 
 Keep the first write pilot as small as possible. Expand the allow-list only after the resulting group membership and Intune targeting are verified.
 
-## Testing
+<a id="testing"></a>
+
+## 🔬 Testing
 
 Tests never contact Microsoft Graph.
 
@@ -429,7 +522,9 @@ Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force
 
 The suite covers exact and normalized matching, missing devices, duplicates, validators, eligibility, Hybrid exclusion, compliance, partial and full updates, dry-run, Graph throttling/transient/permanent failures, per-device failure isolation, and idempotency.
 
-## Operations
+<a id="operations"></a>
+
+## 📊 Operations
 
 ### Schedule
 
@@ -479,7 +574,7 @@ traces
 
 Tokens, authorization headers, credentials, secrets, and full Graph response bodies are not logged.
 
-## Rollback
+## ↩️ Rollback
 
 The automation changes only:
 
@@ -510,7 +605,7 @@ Before each write, `DeviceUpdated` logs the previous and desired values. To roll
 4. Restore the previous Device Name and Group Tag manually or through a controlled rollback inventory.
 5. Verify dynamic group membership and downstream Intune assignments.
 
-## Production evolution
+## 🛣️ Production evolution
 
 Production improvements should be introduced only when justified:
 
@@ -525,6 +620,6 @@ Production improvements should be introduced only when justified:
 - stronger Azure Policy controls;
 - dashboards and alerting.
 
-## License
+## 📄 License
 
 MIT. See [LICENSE](LICENSE).

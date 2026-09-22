@@ -33,6 +33,11 @@ param logAnalyticsName string = ''
 param appServicePlanName string = ''
 param timerSchedule string = '0 0 */6 * * *'
 param dryRun bool = true
+@allowed([
+  'package-json'
+  'storage-blob'
+])
+param inventoryProvider string = 'package-json'
 param pilotSerialNumbers string = ''
 param deviceNameValidationPattern string = '^[A-Za-z][A-Za-z0-9-]{0,14}$'
 param groupTagValidationPattern string = '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'
@@ -48,6 +53,8 @@ var commonTags = union(tags, {
 var resolvedFunctionAppName = !empty(functionAppName) ? functionAppName : 'func-autopilot-${resourceToken}'
 var resolvedStorageAccountName = !empty(storageAccountName) ? storageAccountName : 'stautopilot${resourceToken}'
 var deploymentStorageContainerName = 'app-package'
+var inventoryStorageContainerName = 'inventory'
+var inventoryBlobName = 'inventory.json'
 
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: !empty(resourceGroupName) ? resourceGroupName : 'rg-autopilot-${environmentName}'
@@ -89,6 +96,9 @@ module storage 'br/public:avm/res/storage/storage-account:0.8.3' = {
       containers: [
         {
           name: deploymentStorageContainerName
+        }
+        {
+          name: inventoryStorageContainerName
         }
       ]
     }
@@ -133,8 +143,9 @@ module functionApp './modules/function-app.bicep' = {
     appSettings: {
       TIMER_SCHEDULE: timerSchedule
       DRY_RUN: string(dryRun)
-      INVENTORY_PROVIDER: 'package-json'
+      INVENTORY_PROVIDER: inventoryProvider
       INVENTORY_PATH: 'inventory/sample-inventory.json'
+      INVENTORY_STORAGE_BLOB_URL: 'https://${storage.outputs.name}.blob.${environment().suffixes.storage}/${inventoryStorageContainerName}/${inventoryBlobName}'
       DEVICE_NAME_VALIDATION_PATTERN: deviceNameValidationPattern
       GROUP_TAG_VALIDATION_PATTERN: groupTagValidationPattern
       PILOT_SERIAL_NUMBERS: pilotSerialNumbers
